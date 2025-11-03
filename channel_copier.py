@@ -38,11 +38,13 @@ class SimpleCloner:
                 method=method
             )
             
-            with urllib.request.urlopen(req, context=ssl_context, timeout=10) as response:
+            with urllib.request.urlopen(req, context=ssl_context, timeout=30) as response:
                 return response, json.loads(response.read().decode())
         except urllib.error.HTTPError as e:
+            print(f"{Fore.RED}❌ HTTP Error {e.code}: {e.reason}")
             return e, None
         except Exception as e:
+            print(f"{Fore.RED}❌ Request Error: {e}")
             return None, e
     
     def get_server_info(self, server_id):
@@ -76,17 +78,16 @@ class SimpleCloner:
     def get_server_icon(self, server_id):
         """Получаем аватарку сервера"""
         try:
-            # Получаем информацию о сервере
             server_info = self.get_server_info(server_id)
             if server_info and server_info.get('icon'):
                 icon_hash = server_info['icon']
-                # Скачиваем иконку
                 icon_url = f"https://cdn.discordapp.com/icons/{server_id}/{icon_hash}.png?size=4096"
                 with urllib.request.urlopen(icon_url, context=ssl_context) as icon_response:
                     icon_data = icon_response.read()
                     return f"data:image/png;base64,{base64.b64encode(icon_data).decode()}"
             return None
-        except:
+        except Exception as e:
+            print(f"{Fore.YELLOW}⚠️  Ошибка загрузки аватарки: {e}")
             return None
     
     def delete_channel(self, channel_id):
@@ -167,7 +168,7 @@ class SimpleCloner:
         # Удаляем старые роли (кроме @everyone)
         print(f"\n{Fore.RED}🗑️  Удаляем старые роли...")
         for role in target_roles:
-            if not role['managed'] and role['name'] != '@everyone':  # Не удаляем системные роли и @everyone
+            if not role['managed'] and role['name'] != '@everyone':
                 if self.delete_role(target_id, role['id']):
                     print(f"{Fore.GREEN}✅ Удалена роль: {role['name']}")
                 else:
@@ -178,7 +179,7 @@ class SimpleCloner:
         print(f"\n{Fore.BLUE}🎨 Создаем новые роли...")
         role_count = 0
         for role in source_roles:
-            if not role['managed'] and role['name'] != '@everyone':  # Пропускаем системные роли и @everyone
+            if not role['managed'] and role['name'] != '@everyone':
                 role_data = {
                     'name': role['name'],
                     'color': role['color'],
@@ -198,8 +199,8 @@ class SimpleCloner:
         print(f"\n{Fore.BLUE}📝 Создаем структуру сервера...")
         
         # Сначала создаем категории
-        categories = [ch for ch in source_channels if ch['type'] == 4]  # type 4 = категория
-        category_map = {}  # Для связи старых ID категорий с новыми
+        categories = [ch for ch in source_channels if ch['type'] == 4]
+        category_map = {}
         
         print(f"{Fore.CYAN}📂 Создаем категории...")
         for category in categories:
@@ -219,7 +220,7 @@ class SimpleCloner:
         
         # Затем создаем каналы внутри категорий
         created_count = 0
-        channels = [ch for ch in source_channels if ch['type'] != 4]  # Все кроме категорий
+        channels = [ch for ch in source_channels if ch['type'] != 4]
         
         print(f"{Fore.CYAN}📝 Создаем каналы...")
         for channel in channels:
@@ -229,7 +230,6 @@ class SimpleCloner:
                 'position': channel['position']
             }
             
-            # Если канал был в категории, добавляем parent_id
             if channel.get('parent_id') and channel['parent_id'] in category_map:
                 channel_data['parent_id'] = category_map[channel['parent_id']]
             
@@ -265,6 +265,10 @@ def main():
     print(f"\n{Fore.YELLOW}[ТОКЕН] {Fore.WHITE}Токен вашего Discord аккаунта")
     print(f"{Fore.CYAN}>> {Fore.WHITE}Нужен для доступа к API Discord")
     token = input(f"{Fore.GREEN}[ВВОД] Введите токен: {Fore.WHITE}").strip()
+    
+    if not token:
+        print(f"{Fore.RED}❌ Токен не может быть пустым!")
+        return
     
     print(f"\n{Fore.YELLOW}[ИСХОДНЫЙ СЕРВЕР] {Fore.WHITE}ID сервера, который копируем")
     print(f"{Fore.CYAN}>> {Fore.WHITE}Берем из Check server.py или через Разработчика (F12)")
